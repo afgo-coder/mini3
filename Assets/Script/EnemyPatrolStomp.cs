@@ -33,6 +33,9 @@ public class EnemyPatrolStomp : MonoBehaviour
     public float hitStunTime = 0.35f;
     public int stompToDie = 2;
 
+    [Header("Touch Damage Ignore (When Stomped)")]
+    public float stompIgnoreTouchTime = 0.20f; // ✅ 밟힌 직후 접촉데미지 무시 시간(추천 0.15~0.25)
+
     Rigidbody2D rb;
     Animator anim;
     SpriteRenderer sr;
@@ -44,6 +47,17 @@ public class EnemyPatrolStomp : MonoBehaviour
 
     float flipTimer = 0f;
     float debugTimer = 0f;
+
+    float ignoreTouchDamageTimer = 0f; // ✅ 추가
+
+    // ✅ Player 쪽에서 "지금 이 적이 접촉 데미지를 줄 수 있는가?" 확인용
+    public bool CanDealTouchDamage => !isDead && ignoreTouchDamageTimer <= 0f;
+
+    // ✅ 밟힐 때 호출해서 일정 시간 접촉 데미지 막기
+    public void IgnoreTouchDamage(float t)
+    {
+        ignoreTouchDamageTimer = Mathf.Max(ignoreTouchDamageTimer, t);
+    }
 
     void Awake()
     {
@@ -63,6 +77,10 @@ public class EnemyPatrolStomp : MonoBehaviour
     void FixedUpdate()
     {
         if (flipTimer > 0f) flipTimer -= Time.fixedDeltaTime;
+
+        // ✅ 추가: 밟힌 직후 접촉데미지 무시 타이머 감소
+        if (ignoreTouchDamageTimer > 0f)
+            ignoreTouchDamageTimer -= Time.fixedDeltaTime;
 
         if (isDead || isStunned)
         {
@@ -84,7 +102,7 @@ public class EnemyPatrolStomp : MonoBehaviour
             if (debugTimer <= 0f)
             {
                 debugTimer = debugInterval;
-                Debug.Log($"[{name}] dir={dir} hasGround={hasGround} hitWall={hitWall}");
+                Debug.Log($"[{name}] dir={dir} hasGround={hasGround} hitWall={hitWall} ignoreTouch={ignoreTouchDamageTimer:0.00}");
             }
         }
 
@@ -106,8 +124,6 @@ public class EnemyPatrolStomp : MonoBehaviour
     void ApplyFlip()
     {
         if (!sr) return;
-
-        // ✅ dir=+1(오른쪽 이동)일 때 flipX를 어떻게 할지 보정
         sr.flipX = (dir > 0) ? flipWhenMovingRight : !flipWhenMovingRight;
     }
 
@@ -125,6 +141,9 @@ public class EnemyPatrolStomp : MonoBehaviour
     public void OnStomped()
     {
         if (isDead) return;
+
+        // ✅ 밟힌 순간: 일정 시간 접촉 데미지 주지 않게
+        IgnoreTouchDamage(stompIgnoreTouchTime);
 
         stompCount++;
         if (stompCount >= stompToDie) Die();
